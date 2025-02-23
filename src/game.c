@@ -43,12 +43,16 @@ void SetTargetFPSDLL(int fps) {
     SetTargetFPS(fps);
 }
 
-// Draws the GUI with a toggle button and reload instruction
-void UpdateAndDraw() {
+// Draws the GUI with a toggle button, reload instruction, and reload count
+void UpdateAndDraw(int reloadCount) {
     ClearBackground(isRed ? RED : RAYWHITE);  // Toggle background color based on isRed
-    if (GuiButton((Rectangle){ 300, 200, 200, 40 }, "Toggle Color Q")) {  // Button to toggle color
+    if (GuiButton((Rectangle){ 300, 200, 200, 40 }, "Toggle Color")) {  // Button to toggle color
         isRed = !isRed;
     }
-    DrawText("Edit me and reload! (Auto-reloads on change)", 150, 150, 20, DARKGRAY);  // Instruction text
-    //DrawText("Edit me and reload! (Auto-reloads on change)", 150, 170, 20, DARKGRAY);  // Instruction text
+    DrawText("Edit me  and reload! (Auto-reloads on change)", 150, 150, 20, DARKGRAY);  // Instruction text
+    
+    // Display reload count
+    char reloadText[32];
+    snprintf(reloadText, sizeof(reloadText), "Reloads: %d", reloadCount);
+    DrawText(reloadText, 10, 10, 20, BLACK);  // Top-left corner, black text
 }

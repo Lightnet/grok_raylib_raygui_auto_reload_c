@@ -15,7 +15,7 @@
 #endif
 
 // Function declarations exposed by game.dll
-DLL_API void UpdateAndDraw(void);  // Draws GUI (no reload flag needed)
+DLL_API void UpdateAndDraw(int reloadCount);  // Draws GUI, now takes reload count
 DLL_API void InitWindowDLL(int width, int height, const char* title);  // Initializes Raylib window
 DLL_API bool WindowShouldCloseDLL(void);  // Checks if window should close
 DLL_API void BeginDrawingDLL(void);  // Starts drawing frame

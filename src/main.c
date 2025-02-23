@@ -3,6 +3,7 @@
 #define NOUSER  // Excludes USER functions
 #include <windows.h>
 #include <stdio.h>
+#include <stdlib.h>  // For malloc, realloc, free
 #include <stdbool.h>
 #include "game.h"  // Header for game.dll functions
 
@@ -13,7 +14,7 @@ typedef void (*BeginDrawingFunc)(void);
 typedef void (*EndDrawingFunc)(void);
 typedef void (*CloseWindowFunc)(void);
 typedef void (*SetTargetFPSFunc)(int);
-typedef void (*UpdateAndDrawFunc)(void);
+typedef void (*UpdateAndDrawFunc)(int);  // Updated to take reload count
 
 static InitWindowFunc InitWindowPtr = NULL;
 static WindowShouldCloseFunc WindowShouldClosePtr = NULL;
@@ -25,8 +26,9 @@ static UpdateAndDrawFunc UpdateAndDrawPtr = NULL;
 
 static HMODULE dllHandle = NULL;  // Handle to the loaded game.dll instance
 static FILETIME lastWriteTime = {0};  // Tracks last modification time of game.dll
-static char tempDllPaths[10][MAX_PATH];  // Array to store temp DLL paths (up to 10 reloads)
+static char (*tempDllPaths)[MAX_PATH] = NULL;  // Dynamic array for temp DLL paths
 static int tempDllCount = 0;  // Number of temp DLLs created
+static int tempDllCapacity = 0;  // Current capacity of tempDllPaths array
 
 // Loads or reloads game.dll from a temp file, keeping original free for rebuild
 bool LoadDLL(const char* dllPath) {
@@ -62,11 +64,22 @@ bool LoadDLL(const char* dllPath) {
         return false;
     }
 
-    // Store temp DLL path for cleanup, limit to 10 to avoid overflow
-    if (tempDllCount < 10) {
-        strncpy(tempDllPaths[tempDllCount], tempPath, MAX_PATH);
-        tempDllCount++;
+    // Dynamically grow tempDllPaths array as needed
+    if (tempDllCount >= tempDllCapacity) {
+        tempDllCapacity = (tempDllCapacity == 0) ? 2 : tempDllCapacity * 2;  // Start with 2, then double
+        char (*newPaths)[MAX_PATH] = realloc(tempDllPaths, tempDllCapacity * sizeof(*tempDllPaths));
+        if (!newPaths) {
+            printf("Failed to allocate memory for temp DLL paths\n");
+            FreeLibrary(dllHandle);
+            dllHandle = NULL;
+            return false;
+        }
+        tempDllPaths = newPaths;
     }
+
+    // Store temp DLL path for cleanup
+    strncpy(tempDllPaths[tempDllCount], tempPath, MAX_PATH);
+    tempDllCount++;
 
     printf("DLL loaded successfully!\n");
     return true;
@@ -106,7 +119,10 @@ void CleanupTempDLLs() {
             printf("Failed to delete temp DLL: %s, error %lu\n", tempDllPaths[i], GetLastError());
         }
     }
-    tempDllCount = 0;  // Reset count after cleanup
+    free(tempDllPaths);  // Free the dynamic array
+    tempDllPaths = NULL;
+    tempDllCount = 0;
+    tempDllCapacity = 0;  // Reset counters
 }
 
 int main(void) {
@@ -132,6 +148,7 @@ int main(void) {
 
     printf("Window initialized, entering main loop...\n");
     int frameCount = 0;
+    int reloadCount = 0;  // Tracks number of reloads
     DWORD lastCheckTime = GetTickCount();
     const DWORD checkInterval = 500;  // Check every 500ms to avoid overloading
 
@@ -141,7 +158,7 @@ int main(void) {
         printf("Frame %d: Window still open\n", frameCount);
 
         BeginDrawingPtr();          // Start drawing frame
-        UpdateAndDrawPtr();         // Draw GUI
+        UpdateAndDrawPtr(reloadCount);  // Draw GUI with reload count
         EndDrawingPtr();            // End drawing frame
 
         // Check for DLL changes every 500ms
@@ -156,6 +173,7 @@ int main(void) {
                 }
                 InitWindowPtr(800, 450, "Raylib Hot Reload Test");  // Reopen window
                 SetTargetFPSPtr(60);
+                reloadCount++;  // Increment reload counter
                 printf("DLL reloaded and window re-initialized\n");
                 Sleep(200);  // Brief delay to stabilize reload
             }

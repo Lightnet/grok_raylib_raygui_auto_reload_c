@@ -16,11 +16,11 @@
 # Innformation:
   With the help of Grok Beta 3 limited time. Able to learn how to proper set up cmake build to run raylib correct setup.
 
-  With the AI. I work on trying to see to make sure hot reload work correctly. There are different way to reload depend on how code structure correctly.
+  Please note this use c language.
 
   Added notes in the files from the Grok AI.
 
-  Please note this use c language.
+  This has simple counter if game.dll has change to update counter.
 
   This auto reload once detect change for game.dll time stamp.
 
@@ -49,6 +49,9 @@ build/Debug/RaylibExample.exe
 cmake --build . --target game --config Debug
 ```
 
+## Run and Reload:
+ * Edit game.c multiple times (e.g., "Toggle Color" to "Switch Color", then "Change Color").
+
 # Grok 3:
 
 ## How It Works:
@@ -57,30 +60,31 @@ cmake --build . --target game --config Debug
  * RayGUI button toggles color, reflecting updates post-reload.
 
 ### Overview:
- * Purpose: Automatically hot reloads game.dll (Raylib 5.5 + RayGUI 4.0) when rebuilt, cleaning up temp DLL files on exit to avoid clutter.
- * Key Mechanism: Monitors game.dll’s timestamp every 500ms, closes and reopens the window with a new temp-loaded DLL on change, and deletes temp files on program termination.
+ * Purpose: Automatically hot reloads game.dll (Raylib 5.5 + RayGUI 4.0) when rebuilt, displays a reload count in the window, and cleans up unlimited temp DLL files on exit using a dynamic array.
+ * Key Mechanism: Monitors game.dll’s timestamp every 500ms, closes and reopens the window with a new temp-loaded DLL on change, increments a reload counter, and deletes all temp files on exit.
 
 ### File Roles:
  * CMakeLists.txt: Configures the build, fetching Raylib 5.5 and RayGUI 4.0, producing RaylibExample.exe and game.dll.
- * game.h: Defines the DLL interface for Raylib and RayGUI functions.
- * game.c: Implements the DLL, managing the window and drawing a toggle button with RayGUI.
- * main.c: Loads game.dll, runs the window loop, auto-reloads on timestamp changes, and cleans up temp files.
+ * game.h: Defines the DLL interface, updated UpdateAndDraw to take reloadCount.
+ * game.c: Implements the DLL, drawing a toggle button and reload count with RayGUI.
+ * main.c: Loads game.dll, runs the window loop, auto-reloads with a reload counter, and cleans up temp files.
 
 ### Auto-Reload Process:
  * Initial Load: Copies game.dll to a temp file (e.g., game_temp_12345.dll), loads it into dllHandle, stores the path in tempDllPaths, and initializes the window.
- * Main Loop: Draws the GUI via UpdateAndDrawPtr every frame.
+ * Main Loop: Draws the GUI via UpdateAndDrawPtr every frame, passing reloadCount.
  * Timestamp Check: Every 500ms, CheckDLLUpdate compares game.dll’s timestamp to lastWriteTime.
- * Reload Trigger: On change, closes the window, reloads game.dll into a new temp file (stored in tempDllPaths), reinitializes the window, and resumes drawing.
- * Cleanup: On exit, CleanupTempDLLs deletes all temp files tracked in tempDllPaths.
+ * Reload Trigger: On change, closes the window, reloads game.dll into a new temp file (added to tempDllPaths), increments reloadCount, reinitializes the window, and resumes drawing.
+ * Cleanup: On exit, CleanupTempDLLs deletes all temp files tracked in tempDllPaths and frees the dynamic array.
 ### Key Features:
  * Automatic Reload: Updates game.dll when rebuilt, triggered by timestamp changes every 500ms.
- * Temp File Management: Uses temp copies to keep game.dll free, deletes them on exit to prevent accumulation.
- * RayGUI: Button toggles background color, reloadable with new text (e.g., "Switch Color").
- * Stability: Closing/reopening avoids mid-run DLL state issues, with Sleep(200) stabilizing reloads.
+ * Reload Counter: reloadCount tracks reloads, displayed in the window via UpdateAndDraw.
+ * Dynamic Temp Files: tempDllPaths grows dynamically (doubling from 2), cleaned up on exit.
+ * RayGUI: Button toggles color, reloads with new text (e.g., "Switch Color").
+ * Stability: Closing/reopening with Sleep(200) keeps Raylib’s state intact.
 
-### Cleanup Notes:
- * Storage: tempDllPaths holds up to 10 temp file paths (arbitrary limit—adjustable if more reloads expected).
- * Deletion: DeleteFile removes each temp DLL on exit, logging success or failure.
+### Reload Counter Notes:
+ * Tracking: reloadCount increments each reload, starting at 0 (initial load), passed to UpdateAndDraw.
+ * Display: Rendered as "Reloads: X" in the top-left corner, updated live.
 
 # Refs:
  * https://github.com/raysan5/raylib/issues/1217
